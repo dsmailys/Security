@@ -137,6 +137,30 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
         }
 
         [Fact]
+        public async Task ValidTokenIsSavedInAuthenticationProperties()
+        {
+            var httpClient = CreateClient(saveTokens: true);
+
+            // Verify if the request is redirected to STS with right parameters
+            var response = await httpClient.GetAsync("/");
+            var queryItems = QueryHelpers.ParseQuery(response.Headers.Location.Query);
+
+            var request = new HttpRequestMessage(HttpMethod.Post, queryItems["wreply"]);
+            CopyCookies(response, request);
+            request.Content = CreateSignInContent("WsFederation/ValidToken.xml", queryItems["wctx"]);
+            response = await httpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+
+            request = new HttpRequestMessage(HttpMethod.Get, response.Headers.Location);
+            CopyCookies(response, request);
+            response = await httpClient.SendAsync(request);
+
+            // Did the request end in the actual resource requested for
+            Assert.Equal(File.ReadAllText("WsFederation/ValidToken.xml"), await response.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
         public async Task ValidUnsolicitedTokenIsRefused()
         {
             var httpClient = CreateClient();
@@ -264,7 +288,7 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
             }
         }
 
-        private HttpClient CreateClient(bool allowUnsolicited = false)
+        private HttpClient CreateClient(bool allowUnsolicited = false, bool saveTokens = false)
         {
             var builder = new WebHostBuilder()
                 .Configure(ConfigureApp)
@@ -286,6 +310,8 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
                         options.SecurityTokenHandlers = new List<ISecurityTokenValidator>() { new TestSecurityTokenValidator() };
                         options.UseTokenLifetime = false;
                         options.AllowUnsolicitedLogins = allowUnsolicited;
+                        options.SaveTokens = saveTokens;
+                        options.SavedTokenName = "wsfed_token";
                         options.Events = new WsFederationEvents()
                         {
                             OnMessageReceived = context =>
@@ -424,7 +450,15 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
                     }
                     else
                     {
-                        await context.Response.WriteAsync(WsFederationDefaults.AuthenticationScheme);
+                        var token = await context.GetTokenAsync ("wsfed_token");
+                        if (!string.IsNullOrWhiteSpace (token))
+                        {
+                            await context.Response.WriteAsync(token);
+                        }
+                        else 
+                        {
+                            await context.Response.WriteAsync(WsFederationDefaults.AuthenticationScheme);
+                        }
                     }
                 }
             });

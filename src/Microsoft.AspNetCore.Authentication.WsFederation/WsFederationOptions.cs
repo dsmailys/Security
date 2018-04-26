@@ -176,5 +176,13 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
         /// is not set.
         /// </summary>
         public string SignOutScheme { get; set; }
+
+        /// <summary>
+        /// Defines the name of the token when stored in
+        /// <see cref="Http.Authentication.AuthenticationProperties"/> after a successful authorization.
+        /// This property is used when SaveTokens = true
+        /// This property is set to <c>access_token</c> by default
+        /// </summary>
+        public string SavedTokenName { get; set; } = "access_token";
     }
 }

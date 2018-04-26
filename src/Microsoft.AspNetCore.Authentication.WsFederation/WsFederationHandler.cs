@@ -288,6 +288,13 @@ namespace Microsoft.AspNetCore.Authentication.WsFederation
                 principal = securityTokenValidatedContext.Principal;
                 properties = securityTokenValidatedContext.Properties;
 
+                if (Options.SaveTokens) 
+                {
+                    properties.StoreTokens (new [] {
+                        new AuthenticationToken { Name = Options.SavedTokenName, Value = token }
+                    });
+                }
+
                 return HandleRequestResult.Success(new AuthenticationTicket(principal, properties, Scheme.Name));
             }
             catch (Exception exception)
